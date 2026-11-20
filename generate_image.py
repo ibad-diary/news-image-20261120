@@ -1,197 +1,407 @@
 #!/usr/bin/env python3
-"""Render the one-page newspaper front page for 20 November 2026.
+"""Round-2 front page for news-image-20261120: 37 stories, one image.
 
-Reads ``stories.json`` next to this script (seven world-news stories,
-each with a headline and a short summary) and draws a 1024x1024
-newspaper page with Pillow: a white paper background, the date set
-large in red, one block per story with a thin rule between stories,
-and a small footer.
+Reads the stories.json sitting next to this file and paints a dense
+1024x1024 newspaper front page with Pillow: top line, serif masthead
+with a red date badge, a four-story kicker, region chips, a numbers
+strip, three big illustrated leads, ten small illustrated features,
+and a two-column roll of 24 one-line briefs, closed by a date-check
+footer. All artwork is vector shapes drawn in code; nothing is
+downloaded and nothing is random, so the output is deterministic.
+The page is laid out top to bottom with running y positions, and the
+script refuses to finish if the footer would run past the bottom
+edge, instead of silently clipping text.
 
-Usage:
-
-    python3 generate_image.py --out /tmp/preview.png
-
-The default output is ``entry.png`` next to this script; pass
-``--out`` whenever you only want a test render.
+Run:  python3 generate_image.py   (writes entry.png next to itself)
 """
-
-import argparse
 import json
 import os
+import sys
 
 from PIL import Image, ImageDraw, ImageFont
 
-PAGE = 1024
-MARGIN = 48
-GUTTER = 28
+ROOT = os.path.dirname(os.path.abspath(__file__))
+SIDE = 1024
+PAD = 26
+INNER = SIDE - 2 * PAD
 
-INK = (18, 18, 18)
-RED = (178, 34, 34)
-GREY = (110, 110, 110)
-RULE = (190, 190, 190)
-PAPER = (255, 255, 255)
+PAPER = (250, 247, 238)
+CARD = (255, 253, 246)
+INK = (20, 20, 20)
+BODY = (58, 56, 50)
+MUTED = (96, 92, 84)
+RED = (172, 34, 26)
+DEEPRED = (122, 20, 16)
+NAVY = (31, 58, 96)
+GOLD = (176, 124, 24)
+TEAL = (14, 110, 110)
+GREEN = (34, 122, 60)
+RUST = (122, 74, 30)
+VIOLET = (96, 52, 130)
+LINE = (178, 172, 156)
 
-SERIF_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf"
-SERIF = "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf"
-SANS = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
-SANS_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+DEJAVU = "/usr/share/fonts/truetype/dejavu"
+LIBERATION = "/usr/share/fonts/truetype/liberation"
+SERIF_B = os.path.join(DEJAVU, "DejaVuSerif-Bold.ttf")
+SERIF_I = os.path.join(LIBERATION, "LiberationSerif-Italic.ttf")
+SANS = os.path.join(DEJAVU, "DejaVuSans.ttf")
+SANS_B = os.path.join(DEJAVU, "DejaVuSans-Bold.ttf")
 
-
-def font(path, size):
-    """Load a TrueType font, falling back to Pillow's built-in font."""
-    try:
-        return ImageFont.truetype(path, size)
-    except OSError:
-        return ImageFont.load_default()
-
-
-def wrap(draw, text, face, max_width):
-    """Split text into lines that fit max_width, word by word."""
-    lines = []
-    for paragraph in text.split("\n"):
-        words = paragraph.split()
-        if not words:
-            lines.append("")
-            continue
-        current = words[0]
-        for word in words[1:]:
-            trial = current + " " + word
-            if draw.textlength(trial, font=face) <= max_width:
-                current = trial
-            else:
-                lines.append(current)
-                current = word
-        lines.append(current)
-    return lines
+ORDER = ["Europe", "Mideast", "Asia", "Africa", "Americas", "Oceania",
+         "World"]
+PAINT = {"Europe": NAVY, "Mideast": TEAL, "Asia": GOLD, "Africa": RUST,
+         "Americas": VIOLET, "Oceania": TEAL, "World": (90, 88, 80)}
 
 
-def fit_lines(draw, text, face, max_width, max_lines):
-    """Wrap text and clip it to max_lines, adding an ellipsis if cut."""
-    lines = wrap(draw, text, face, max_width)
-    if len(lines) <= max_lines:
-        return lines
-    clipped = lines[:max_lines]
-    while clipped and draw.textlength(clipped[-1] + " …", font=face) > max_width:
-        clipped[-1] = clipped[-1].rsplit(" ", 1)[0]
-    clipped[-1] = clipped[-1] + " …"
-    return clipped
+def typeface(path, size):
+    return ImageFont.truetype(path, size)
 
 
-def draw_lines(draw, lines, face, x, y, fill, spacing):
-    """Draw lines top to bottom, returning the y below the last line."""
-    for line in lines:
-        draw.text((x, y), line, font=face, fill=fill)
-        y += face.size + spacing
-    return y
+def fit_text(draw, text, font, width, limit):
+    """Word-wrap `text` to `width`, at most `limit` lines, ellipsis tail."""
+    out, current = [], ""
+    for word in text.split():
+        trial = (current + " " + word).strip()
+        if draw.textlength(trial, font=font) <= width:
+            current = trial
+        else:
+            out.append(current)
+            current = word
+    if current:
+        out.append(current)
+    if len(out) > limit:
+        out = out[:limit]
+        while out and draw.textlength(out[-1] + " ...", font=font) > width:
+            out[-1] = out[-1].rsplit(" ", 1)[0]
+        out[-1] = out[-1] + " ..."
+    return out
 
 
-def story_block(draw, story, x, y, width):
-    """Draw one story (tag, headline, summary) and return the next y."""
-    tag_face = font(SANS_BOLD, 13)
-    head_face = font(SERIF_BOLD, 20)
-    body_face = font(SANS, 14)
+# --- pictures -----------------------------------------------------------
 
-    tag = story.get("tag", "").upper()
-    if tag:
-        y = draw_lines(draw, [tag], tag_face, x, y, RED, 2)
-        y += 2
+def picture_cyclone(draw, x, y, w, h):
+    """Cyclone over the Bay of Bengal: sea, coast, spiral, landfall pin."""
+    draw.rectangle([x, y, x + w, y + h], fill=(24, 68, 96))
+    draw.polygon([(x, y + h), (x + w // 2, y + h // 3), (x + w, y + h)],
+                 fill=(196, 164, 110))
+    cx, cy = x + w // 3, y + h // 2
+    for r in (30, 22, 14):
+        draw.arc([cx - r, cy - r, cx + r, cy + r], 30, 320,
+                 fill=(255, 255, 255), width=4)
+    draw.ellipse([cx - 4, cy - 4, cx + 4, cy + 4], fill=RED)
+    draw.ellipse([x + w - 34, y + h - 30, x + w - 18, y + h - 14],
+                 fill=RED)
+    f = typeface(SANS_B, 10)
+    draw.text((x + 8, y + h - 18), "LANDFALL · GUSTS 110 KM/H", font=f,
+              fill=(255, 255, 255))
 
-    headline = fit_lines(draw, story["headline"], head_face, width, 3)
-    y = draw_lines(draw, headline, head_face, x, y, INK, 2)
-    y += 2
 
-    summary = fit_lines(draw, story["summary"], body_face, width, 4)
-    y = draw_lines(draw, summary, body_face, x, y, (60, 60, 60), 2)
-    return y
+def picture_rockets(draw, x, y, w, h):
+    """Night sky over Kyiv: skyline and missile trails."""
+    draw.rectangle([x, y, x + w, y + h], fill=(16, 22, 44))
+    for i, bh in enumerate([40, 58, 34, 66, 46]):
+        bx = x + 10 + i * ((w - 20) // 5)
+        draw.rectangle([bx, y + h - 30 - bh, bx + (w - 20) // 5 - 6,
+                        y + h - 30], fill=(8, 12, 28))
+    draw.rectangle([x, y + h - 30, x + w, y + h], fill=(8, 12, 28))
+    for i, (sx, sy) in enumerate([(20, 26), (70, 14), (120, 30), (170, 18)]):
+        draw.line([x + sx, y + sy, x + sx + 46, y + sy + 26],
+                  fill=(255, 120, 60), width=3)
+        draw.ellipse([x + sx + 44, y + sy + 24, x + sx + 50, y + sy + 30],
+                     fill=(255, 200, 90))
+    f = typeface(SANS_B, 10)
+    draw.text((x + 8, y + 6), "01:25 LOCAL · 7 WAVES", font=f,
+              fill=(255, 200, 90))
 
 
-def render(data):
-    """Build the 1024x1024 front page and return the Pillow image."""
-    image = Image.new("RGB", (PAGE, PAGE), PAPER)
-    draw = ImageDraw.Draw(image)
+def picture_cop(draw, x, y, w, h):
+    """COP31: globe, thermometer, red FINAL DAY badge."""
+    draw.rectangle([x, y, x + w, y + h], fill=(18, 64, 78))
+    cx, cy = x + w // 3, y + h // 2
+    draw.ellipse([cx - 34, cy - 34, cx + 34, cy + 34], outline=(255, 255, 255),
+                 width=3)
+    draw.line([cx - 34, cy, cx + 34, cy], fill=(255, 255, 255), width=2)
+    draw.arc([cx - 16, cy - 34, cx + 16, cy + 34], 90, 270,
+             fill=(255, 255, 255), width=2)
+    tx = x + 2 * w // 3
+    draw.rounded_rectangle([tx, y + 12, tx + 14, y + h - 22], radius=7,
+                           outline=(255, 255, 255), width=2)
+    draw.rectangle([tx + 3, y + h - 34, tx + 11, y + h - 24], fill=RED)
+    draw.ellipse([tx - 3, y + h - 26, tx + 17, y + h - 6], fill=RED)
+    draw.rounded_rectangle([x + w - 118, y + 8, x + w - 8, y + 38], radius=4,
+                           fill=RED)
+    f = typeface(SANS_B, 12)
+    draw.text((x + w - 63, y + 15), "FINAL DAY", font=f,
+              fill=(255, 255, 255), anchor="ma")
 
-    title = data.get("title", "THE WORLD TODAY")
-    subtitle = data.get("subtitle", "")
-    date_label = data.get("date_label", "FRIDAY 20 NOVEMBER 2026")
-    footer = data.get("footer", "")
-    stories = data["stories"]
 
-    # --- Masthead -----------------------------------------------------
-    y = 36
-    title_face = font(SERIF_BOLD, 64)
-    title_w = draw.textlength(title, font=title_face)
-    draw.text(((PAGE - title_w) / 2, y), title, font=title_face, fill=INK)
-    y += 64 + 10
+def picture_sunset(draw, x, y, w, h):
+    """GTA VI launch sunset with skyline and a big $2.36bn tag."""
+    bands = [(232, 120, 40), (214, 84, 96), (128, 72, 140), (64, 48, 110)]
+    step = h // 4
+    for i, colour in enumerate(bands):
+        draw.rectangle([x, y + i * step, x + w, y + (i + 1) * step],
+                       fill=colour)
+    draw.ellipse([x + w // 2 - 24, y + 10, x + w // 2 + 24, y + 58],
+                 fill=(252, 214, 110))
+    base = y + h - 24
+    for i, bh in enumerate([30, 48, 26, 56, 36, 44]):
+        bx = x + 8 + i * ((w - 16) // 6)
+        draw.rectangle([bx, base - bh, bx + (w - 16) // 6 - 4, base],
+                       fill=(24, 18, 44))
+    draw.rectangle([x, base, x + w, y + h], fill=(24, 18, 44))
+    f = typeface(SANS_B, 15)
+    draw.text((x + 8, y + 6), "$2.36bn", font=f, fill=(255, 255, 255))
 
-    date_face = font(SERIF_BOLD, 40)
-    date_text = "20 November 2026"
-    date_w = draw.textlength(date_text, font=date_face)
-    draw.text(((PAGE - date_w) / 2, y), date_text, font=date_face, fill=RED)
-    y += 40 + 8
 
-    label_face = font(SANS_BOLD, 15)
-    label_w = draw.textlength(date_label, font=label_face)
-    draw.text(((PAGE - label_w) / 2, y), date_label, font=label_face, fill=GREY)
-    y += 15 + 6
+def mini(draw, kind, x, y, w, h, colour):
+    """A small coloured banner with one white glyph for a feature card."""
+    draw.rectangle([x, y, x + w, y + h], fill=colour)
+    cx, cy = x + w // 2, y + h // 2
+    white = (255, 255, 255)
+    if kind == "chartdown":
+        draw.line([(x + 10, y + 10), (x + w // 3, y + h - 18),
+                   (x + 2 * w // 3, y + h // 2), (x + w - 10, y + h - 10)],
+                  fill=white, width=3)
+        draw.polygon([(x + w - 16, y + h - 16), (x + w - 8, y + h - 10),
+                      (x + w - 16, y + h - 4)], fill=white)
+    elif kind == "planet":
+        draw.ellipse([cx - 15, cy - 15, cx + 15, cy + 15], fill=white)
+        draw.ellipse([cx - 22, cy - 4, cx + 22, cy + 4], outline=white,
+                     width=2)
+    elif kind == "flags":
+        for i, off in enumerate((0, 26, 52)):
+            draw.line([x + 16 + off, y + 8, x + 16 + off, y + h - 8],
+                      fill=white, width=2)
+            draw.rectangle([x + 16 + off, y + 8, x + 34 + off, y + 18],
+                           fill=white)
+    elif kind == "bars":
+        for i, bh in enumerate([12, 20, 28]):
+            bx = x + 16 + i * 18
+            draw.rectangle([bx, y + h - 8 - bh, bx + 12, y + h - 8],
+                           fill=white)
+    elif kind == "sunset":
+        picture_sunset(draw, x, y, w, h)
+    elif kind == "bat":
+        draw.line([x + 14, y + h - 10, x + w - 30, y + 10], fill=white,
+                  width=5)
+        draw.ellipse([x + w - 34, y + 6, x + w - 12, y + 28], fill=white)
+    elif kind == "vote":
+        f = typeface(SANS_B, 13)
+        draw.text((cx, cy - 16), "THIRD", font=f, fill=white, anchor="ma")
+        draw.text((cx, cy + 2), "TERM", font=f, fill=white, anchor="ma")
+    elif kind == "waves":
+        for j, yy in enumerate((y + 12, y + 22, y + 32)):
+            draw.arc([x + 10 + j * 6, yy, x + w - 10 - j * 6, yy + 16], 180,
+                     360, fill=white, width=2)
+    elif kind == "rally":
+        for i, off in enumerate((-22, 0, 22)):
+            draw.ellipse([cx + off - 8, y + 8, cx + off + 8, y + 24],
+                         fill=white)
+            draw.pieslice([cx + off - 14, y + 22, cx + off + 14, y + 44],
+                          180, 360, fill=white)
+    elif kind == "pill":
+        draw.rounded_rectangle([x + 14, cy - 9, x + w - 14, cy + 9], radius=9,
+                               fill=white)
+        draw.line([cx, cy - 9, cx, cy + 9], fill=colour, width=2)
 
-    if subtitle:
-        sub_face = font(SERIF, 17)
-        sub_w = draw.textlength(subtitle, font=sub_face)
-        draw.text(((PAGE - sub_w) / 2, y), subtitle, font=sub_face, fill=(70, 70, 70))
-        y += 17 + 12
 
-    draw.line([(MARGIN, y), (PAGE - MARGIN, y)], fill=INK, width=3)
+LEAD_ART = {"cyclone": picture_cyclone, "rockets": picture_rockets,
+            "cop": picture_cop}
+
+
+def build(data):
+    img = Image.new("RGB", (SIDE, SIDE), PAPER)
+    draw = ImageDraw.Draw(img)
+    total = len(data["leads"]) + len(data["features"]) + len(data["briefs"])
+    assert total == 37, "expected 37 stories, got %d" % total
+    counts = {name: 0 for name in ORDER}
+    for story in data["leads"] + data["features"] + data["briefs"]:
+        counts[story["region"]] += 1
+
+    lead_h, feat_h, brief_step = 96, 42, 13
+    y = 12
+
+    # top line
+    f_top = typeface(SANS_B, 10)
+    draw.text((PAD, y), data["topline_left"], font=f_top, fill=INK)
+    draw.text((SIDE - PAD, y), data["topline_right"], font=f_top, fill=INK,
+              anchor="ra")
+    y += 15
+    draw.line([(PAD, y), (SIDE - PAD, y)], fill=INK, width=2)
     y += 6
-    draw.line([(MARGIN, y), (PAGE - MARGIN, y)], fill=INK, width=1)
-    y += 18
 
-    # --- Stories in two columns ---------------------------------------
-    column_w = (PAGE - 2 * MARGIN - GUTTER) // 2
-    left_x = MARGIN
-    right_x = MARGIN + column_w + GUTTER
+    # masthead, shrunk until it clears the badge at the right
+    size = 46
+    while True:
+        f_head = typeface(SERIF_B, size)
+        if draw.textlength(data["masthead"], font=f_head) <= 2 * (
+                SIDE - PAD - 78 - 8 - SIDE // 2):
+            break
+        size -= 1
+    draw.text((SIDE // 2, y), data["masthead"], font=f_head, fill=INK,
+              anchor="ma")
+    draw.rounded_rectangle([SIDE - PAD - 78, y + 4, SIDE - PAD, y + 46],
+                           radius=4, fill=RED)
+    f_badge = typeface(SANS_B, 12)
+    draw.text((SIDE - PAD - 39, y + 9), "FRIDAY", font=f_badge,
+              fill=(255, 255, 255), anchor="ma")
+    draw.text((SIDE - PAD - 39, y + 26), "20 NOV 2026", font=f_badge,
+              fill=(255, 255, 255), anchor="ma")
+    y += 56
+    draw.text((SIDE // 2, y), data["kicker"], font=typeface(SERIF_I, 15),
+              fill=DEEPRED, anchor="ma")
+    y += 22
+    draw.line([(PAD, y), (SIDE - PAD, y)], fill=INK, width=2)
+    y += 6
+
+    # region chips
+    f_chip = typeface(SANS_B, 12)
+    x = PAD
+    for name in ORDER:
+        label = "%s %d" % (name.upper(), counts[name])
+        cw = draw.textlength(label, font=f_chip) + 18
+        draw.rounded_rectangle([x, y, x + cw, y + 24], radius=3,
+                               fill=PAINT[name])
+        draw.text((x + 9, y + 4), label, font=f_chip, fill=(255, 255, 255))
+        x += cw + 6
+    y += 30
+
+    # numbers strip
+    f_big = typeface(SERIF_B, 27)
+    f_cap = typeface(SANS, 10)
+    cell = INNER // 6
     top = y
+    for i, num in enumerate(data["numbers"]):
+        cx = PAD + i * cell + cell // 2
+        draw.text((cx, top), num["big"], font=f_big, fill=RED, anchor="ma")
+        cy = top + 32
+        for row in fit_text(draw, num["cap"], f_cap, cell - 12, 3):
+            draw.text((cx, cy), row, font=f_cap, fill=BODY, anchor="ma")
+            cy += 12
+        if i:
+            draw.line([(PAD + i * cell, top + 2),
+                       (PAD + i * cell, top + 70)], fill=LINE, width=1)
+    y = top + 74
+    draw.line([(PAD, y), (SIDE - PAD, y)], fill=LINE, width=1)
+    y += 8
 
-    split = (len(stories) + 1) // 2  # 4 on the left, 3 on the right
-    for column, group in enumerate((stories[:split], stories[split:])):
-        x = left_x if column == 0 else right_x
-        cy = top
-        for index, story in enumerate(group):
-            cy = story_block(draw, story, x, cy, column_w)
-            if index < len(group) - 1:
-                cy += 8
-                draw.line([(x, cy), (x + column_w, cy)], fill=RULE, width=1)
-                cy += 12
-        if column == 0:
-            left_bottom = cy
+    # lead cards
+    f_lk = typeface(SANS_B, 10)
+    f_lh = typeface(SANS_B, 18)
+    f_ls = typeface(SANS, 12)
+    gap = 10
+    cw = (INNER - 2 * gap) // 3
+    lead_top = y
+    for i, story in enumerate(data["leads"]):
+        x0 = PAD + i * (cw + gap)
+        draw.rectangle([x0, y, x0 + cw, y + lead_h + 138], outline=LINE,
+                       width=1, fill=CARD)
+        LEAD_ART[story["art"]](draw, x0 + 1, y + 1, cw - 2, lead_h)
+        cy = y + lead_h + 8
+        draw.text((x0 + 10, cy), story["place"], font=f_lk,
+                  fill=PAINT[story["region"]])
+        draw.text((x0 + cw - 10, cy), str(story["n"]), font=f_lk, fill=RED,
+                  anchor="ra")
+        cy += 14
+        for row in fit_text(draw, story["headline"], f_lh, cw - 20, 3):
+            draw.text((x0 + 10, cy), row, font=f_lh, fill=INK)
+            cy += 22
+        for row in fit_text(draw, story["summary"], f_ls, cw - 20, 3):
+            draw.text((x0 + 10, cy), row, font=f_ls, fill=BODY)
+            cy += 16
+    y = lead_top + lead_h + 138 + 8
 
-    y = max(left_bottom, cy) + 10
+    # feature cards, 5 across x 2 rows
+    f_fk = typeface(SANS_B, 9)
+    f_fh = typeface(SANS_B, 13)
+    f_fs = typeface(SANS, 10)
+    fgap = 8
+    fw = (INNER - 4 * fgap) // 5
+    row_h = feat_h + 98
+    for r in range(2):
+        for c in range(5):
+            story = data["features"][r * 5 + c]
+            x0 = PAD + c * (fw + fgap)
+            y0 = y + r * (row_h + fgap)
+            draw.rectangle([x0, y0, x0 + fw, y0 + row_h], outline=LINE,
+                           width=1, fill=CARD)
+            mini(draw, story["art"], x0 + 1, y0 + 1, fw - 2, feat_h,
+                 PAINT[story["region"]])
+            cy = y0 + feat_h + 6
+            draw.text((x0 + 8, cy), story["place"], font=f_fk,
+                      fill=PAINT[story["region"]])
+            draw.text((x0 + fw - 8, cy), str(story["n"]), font=f_fk, fill=RED,
+                      anchor="ra")
+            cy += 13
+            for row in fit_text(draw, story["headline"], f_fh, fw - 16, 3):
+                draw.text((x0 + 8, cy), row, font=f_fh, fill=INK)
+                cy += 16
+            for row in fit_text(draw, story["summary"], f_fs, fw - 16, 2):
+                draw.text((x0 + 8, cy), row, font=f_fs, fill=BODY)
+                cy += 13
+    y += 2 * row_h + fgap + 8
 
-    # --- Footer -------------------------------------------------------
-    draw.line([(MARGIN, y), (PAGE - MARGIN, y)], fill=RULE, width=1)
-    y += 10
-    foot_face = font(SANS, 12)
-    foot_lines = fit_lines(draw, footer, foot_face, PAGE - 2 * MARGIN, 2)
-    draw_lines(draw, foot_lines, foot_face, MARGIN, y, GREY, 2)
+    # briefs, two columns
+    f_bh = typeface(SANS_B, 12)
+    draw.text((PAD, y), "ALSO ON FRIDAY 20 NOVEMBER — 24 MORE STORIES",
+              font=f_bh, fill=INK)
+    draw.text((SIDE - PAD, y), "place · what happened · source", font=f_bh,
+              fill=MUTED, anchor="ra")
+    y += 20
+    draw.line([(PAD, y), (SIDE - PAD, y)], fill=INK, width=2)
+    y += 4
+    f_b = typeface(SANS, 11)
+    f_bb = typeface(SANS_B, 11)
+    col_w = (INNER - 24) // 2
+    half = (len(data["briefs"]) + 1) // 2
+    ends = []
+    for col, group in enumerate((data["briefs"][:half],
+                                 data["briefs"][half:])):
+        x0 = PAD + col * (col_w + 24)
+        cy = y
+        for b in group:
+            draw.text((x0, cy), "■ ", font=f_b, fill=RED)
+            bx = x0 + 12
+            head = b["place"] + " — "
+            draw.text((bx, cy), head, font=f_bb, fill=INK)
+            off = draw.textlength(head, font=f_bb)
+            rows = fit_text(draw, b["text"] + "  (" + b["source"] + ")",
+                            f_b, col_w - 12 - off, 2)
+            ry = cy
+            for j, row in enumerate(rows):
+                if j == 0:
+                    draw.text((bx + off, ry), row, font=f_b, fill=BODY)
+                else:
+                    draw.text((bx, ry), row, font=f_b, fill=BODY)
+                ry += brief_step
+            cy += max(brief_step, len(rows) * brief_step)
+        ends.append(cy)
+    y = max(ends) + 6
 
-    return image
+    # footer
+    draw.line([(PAD, y), (SIDE - PAD, y)], fill=INK, width=2)
+    y += 6
+    f_foot = typeface(SANS, 9)
+    for row in fit_text(draw, data["date_check"], f_foot, INNER, 2):
+        draw.text((PAD, y), row, font=f_foot, fill=BODY)
+        y += 12
+    for row in fit_text(draw, data["sources"], f_foot, INNER, 2):
+        draw.text((PAD, y + 2), row, font=f_foot, fill=MUTED)
+        y += 12
+    if y > SIDE - 4:
+        sys.exit("footer overflows the page bottom (y=%d)" % y)
+    return img
 
 
 def main():
-    here = os.path.dirname(os.path.abspath(__file__))
-    parser = argparse.ArgumentParser(description="Render the front page.")
-    parser.add_argument(
-        "--out",
-        default=os.path.join(here, "entry.png"),
-        help="output PNG path (default: entry.png next to this script)",
-    )
-    args = parser.parse_args()
-
-    with open(os.path.join(here, "stories.json"), encoding="utf-8") as handle:
-        data = json.load(handle)
-
-    image = render(data)
-    image.save(args.out, format="PNG")
-    print("wrote %s (%dx%d)" % (args.out, image.width, image.height))
+    with open(os.path.join(ROOT, "stories.json"), encoding="utf-8") as fh:
+        data = json.load(fh)
+    img = build(data)
+    out = os.path.join(ROOT, "entry.png")
+    img.save(out, "PNG", optimize=True)
+    print("wrote %s (%dx%d, %d bytes)"
+          % (out, img.width, img.height, os.path.getsize(out)))
 
 
 if __name__ == "__main__":

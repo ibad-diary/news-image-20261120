@@ -1,83 +1,54 @@
 #!/usr/bin/env python3
-"""Copy the verified front-page image to the make.fun output directory.
+"""Round-2 entry for make.fun news-image-20261120.
 
-Reads ``entry.png`` next to this script, checks that it really is a PNG
-no larger than 1 MiB and no bigger than 1024x1024 pixels, then writes an
-exact byte copy to ``$MAKEFUN_OUTPUT_DIR/entry.png``.
-
-Only the standard library is used and no network access happens, so
-running the script twice produces byte-identical output.
+The front page is pre-rendered by generate_image.py and shipped as
+entry.png next to this file. This program only copies that file into
+the output directory make.fun requests, after verifying it is a real
+PNG within the competition limits (no more than 1 MiB, no side longer
+than 1024 pixels). Standard library only, no network access, so two
+runs always produce byte-identical output.
 """
-
 import os
 import struct
 import sys
 
-MAX_FILE_SIZE = 1 * 1024 * 1024  # 1 MiB
-MAX_WIDTH = 1024
-MAX_HEIGHT = 1024
-PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
-SOURCE_NAME = "entry.png"
+HERE = os.path.dirname(os.path.abspath(__file__))
+FILE = "entry.png"
+MAX_BYTES = 1024 * 1024
+MAX_SIDE = 1024
+SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 
 def fail(message):
-    """Print an error to stderr and exit non-zero."""
-    print("error: " + message, file=sys.stderr)
+    print("main.py: " + message, file=sys.stderr)
     sys.exit(1)
 
 
-def png_dimensions(data):
-    """Return (width, height) parsed from the PNG IHDR chunk.
-
-    The PNG layout is: 8-byte signature, then a 4-byte chunk length,
-    the 4-byte chunk type (must be "IHDR"), then 13 bytes of header
-    data whose first 8 bytes are the width and height as big-endian
-    unsigned 32-bit integers.
-    """
-    header_size = 8 + 4 + 4 + 13
-    if len(data) < header_size:
-        fail("entry.png is too short to contain a PNG header")
-    if data[12:16] != b"IHDR":
-        fail("entry.png has no IHDR chunk where one is expected")
-    width, height = struct.unpack(">II", data[16:24])
-    return width, height
-
-
 def main():
-    here = os.path.dirname(os.path.abspath(__file__))
-    source_path = os.path.join(here, SOURCE_NAME)
+    source = os.path.join(HERE, FILE)
+    try:
+        with open(source, "rb") as handle:
+            blob = handle.read()
+    except OSError as exc:
+        fail("cannot read %s (%s)" % (FILE, exc))
 
-    output_dir = os.environ.get("MAKEFUN_OUTPUT_DIR")
-    if not output_dir:
-        fail("MAKEFUN_OUTPUT_DIR is not set")
+    if blob[:8] != SIGNATURE:
+        fail("%s does not start with the PNG signature" % FILE)
+    if len(blob) > MAX_BYTES:
+        fail("%s is %d bytes, over the 1 MiB limit" % (FILE, len(blob)))
+    if len(blob) < 24 or blob[12:16] != b"IHDR":
+        fail("%s has no PNG header chunk" % FILE)
+    width, height = struct.unpack(">II", blob[16:24])
+    if width > MAX_SIDE or height > MAX_SIDE:
+        fail("%s is %dx%d, over 1024x1024" % (FILE, width, height))
 
-    if not os.path.isfile(source_path):
-        fail("missing " + source_path)
-
-    with open(source_path, "rb") as handle:
-        data = handle.read()
-
-    if data[:8] != PNG_SIGNATURE:
-        fail("entry.png does not start with the PNG magic bytes")
-
-    if len(data) > MAX_FILE_SIZE:
-        fail(
-            "entry.png is %d bytes, over the 1 MiB limit" % len(data)
-        )
-
-    width, height = png_dimensions(data)
-    if width > MAX_WIDTH or height > MAX_HEIGHT:
-        fail(
-            "entry.png is %dx%d, over the 1024x1024 limit"
-            % (width, height)
-        )
-
-    os.makedirs(output_dir, exist_ok=True)
-    destination = os.path.join(output_dir, SOURCE_NAME)
-    with open(destination, "wb") as handle:
-        handle.write(data)
-
-    print("ok: copied entry.png (%dx%d, %d bytes)" % (width, height, len(data)))
+    out_dir = os.environ.get("MAKEFUN_OUTPUT_DIR", "/output")
+    os.makedirs(out_dir, exist_ok=True)
+    target = os.path.join(out_dir, FILE)
+    with open(target, "wb") as handle:
+        handle.write(blob)
+    print("copied %s -> %s (%dx%d, %d bytes)"
+          % (FILE, target, width, height, len(blob)))
 
 
 if __name__ == "__main__":

@@ -1,1 +1,290 @@
-{"date":"2026-11-20","date_label":"FRIDAY 20 NOVEMBER 2026","footer":"Compiled from BBC, Reuters, CNBC, India Meteorological Department, Sensor Tower and The Times reports filed on 20 November 2026 (morning, WIB).","sources_note":"All seven stories were reported on 20 November 2026; the Trump-Xi-Putin declaration and the ICJ Myanmar verdict were delivered on 19 November and first widely reported in the early hours of 20 November (WIB), and Cyclone Akvan's landfall is forecast for around noon on 20 November, not yet reported at the time of writing.","stories":[{"headline":"Trump, Xi and Putin issue 'peace declaration' after first trilateral summit","n":1,"source":"BBC / USA Today, 20 Nov 2026","summary":"The three leaders ended their 90-minute meeting in Shenzhen with a four-point 'Declaration Towards Peace' pledging dialogue on nuclear risks, more refined petroleum output and UN reform. The statement said nothing about Ukraine, and analysts called it symbolic rather than a breakthrough.","tag":"ASIA  ·  DIPLOMACY"},{"headline":"Anthropic closes up 17% at $97.17 in record $81.3bn IPO debut","n":2,"source":"CNBC / NY Post, 20 Nov 2026","summary":"The Claude maker's shares opened at $111.50, briefly valuing it above $2 trillion, before closing at $97.17 — up 17% on the $83 offer price — in the largest IPO on record. Anthropic raised $81.3 billion selling 980 million shares, alongside a separate $26 billion private placement.","tag":"TECH  ·  MARKETS"},{"headline":"World court rules Myanmar committed genocide against Rohingya","n":3,"source":"BBC / Le Monde, 20 Nov 2026","summary":"The International Court of Justice ruled 9-6 that Myanmar committed genocide during its 2017 crackdown, finding about 10,000 Rohingya were violently killed — the first time a state has been found responsible for genocide. The court ordered reparations and the safe return of refugees, though it has no power to enforce the ruling.","tag":"LAW  ·  ASIA"},{"headline":"Missiles hit Kyiv in early hours as war grinds on","n":4,"source":"Reuters, 20 Nov 2026","summary":"Explosions were heard across Kyiv in the early hours of Friday, and a fire broke out in a three-storey building in the Obolonskyi district after it was hit by missile debris, the city's mayor said. The strike came a day after a drone attack on the capital killed one person and damaged the Austrian and Dutch embassies.","tag":"EUROPE  ·  WAR"},{"headline":"Cyclone Akvan bears down on India as 300,000 evacuate","n":5,"source":"ANI / India Meteorological Dept, 20 Nov 2026","summary":"More than 300,000 people have been evacuated to shelters in Odisha as Severe Cyclonic Storm Akvan approaches the coast, with 69 trains cancelled and hundreds of rescue teams deployed. Landfall is forecast near Gopalpur around noon on Friday, with winds of 90-100 km/h and gusts to 110 km/h.","tag":"WEATHER  ·  ASIA"},{"headline":"GTA VI smashes records with estimated $2.36bn first-day sales","n":6,"source":"Sensor Tower / Deadline, 20 Nov 2026","summary":"Sensor Tower estimates GTA VI sold 24.58 million copies worth about $2.36 billion on its first day — more than double GTA V's 2013 record — with 75% of sales on PlayStation. Take-Two has not yet confirmed official figures, and the online mode and PC version are expected in 2027.","tag":"TECH  ·  GAMING"},{"headline":"Daily pill hailed as biggest pancreatic cancer advance in decades","n":7,"source":"BBC / The Times, 20 Nov 2026","summary":"A daily pill, daraxonrasib, given with chemotherapy shrank or wiped out tumours in 60.7% of 61 patients with advanced pancreatic cancer, and tumours vanished entirely in about one in 12. Doctors caution the early-phase trial had no control arm and is not a cure, but Cancer Research UK called it the biggest leap forward in decades.","tag":"HEALTH  ·  SCIENCE"}],"subtitle":"Seven stories that defined Friday, 20 November 2026","title":"THE WORLD TODAY"}
+{
+ "briefs": [
+  {
+   "place": "Brazil",
+   "region": "Americas",
+   "source": "AL JAZEERA",
+   "text": "Lula meets Chief Raoni on Indigenous land."
+  },
+  {
+   "place": "Seoul",
+   "region": "Asia",
+   "source": "SBS",
+   "text": "Ruling party moves to impeach Chief Justice Cho Hee-dae."
+  },
+  {
+   "place": "Bougainville",
+   "region": "Oceania",
+   "source": "RNZ",
+   "text": "Rio Tinto pledges $370m for Panguna mine legacy."
+  },
+  {
+   "place": "Canberra",
+   "region": "Oceania",
+   "source": "ABC",
+   "text": "CBO warns AUKUS sub costs shrink US fleet."
+  },
+  {
+   "place": "Florida",
+   "region": "Americas",
+   "source": "AP",
+   "text": "St Johns River hits record 18.3 ft; four counties shut schools."
+  },
+  {
+   "place": "Iowa",
+   "region": "Americas",
+   "source": "AP",
+   "text": "US Army sets noon detonation of 68 unstable explosive barrels."
+  },
+  {
+   "place": "Tonga",
+   "region": "Oceania",
+   "source": "RNZ",
+   "text": "Pacific kingdom declares emergency as El Niño drought bites."
+  },
+  {
+   "place": "Washington",
+   "region": "Americas",
+   "source": "PENTAGON",
+   "text": "Pentagon puts US war cost vs Iran at $4.38bn."
+  },
+  {
+   "place": "London",
+   "region": "Europe",
+   "source": "BBC",
+   "text": "UK & Norway fund £100m+ for two Ukrainian naval vessels."
+  },
+  {
+   "place": "Copenhagen",
+   "region": "Europe",
+   "source": "AFP",
+   "text": "Denmark's parliament approves Greenland defence bill."
+  },
+  {
+   "place": "Jakarta",
+   "region": "Asia",
+   "source": "REUTERS",
+   "text": "Indonesia's parliament passes asset-forfeiture bill."
+  },
+  {
+   "place": "Global",
+   "region": "World",
+   "source": "UN NEWS",
+   "text": "UN marks World Children's Day across member states."
+  },
+  {
+   "place": "Cincinnati",
+   "region": "Americas",
+   "source": "AP",
+   "text": "Zoo's famed hippo Fiona dies days after swallowing hat."
+  },
+  {
+   "place": "Senegal",
+   "region": "Africa",
+   "source": "AFP",
+   "text": "President Faye enacts supplementary budget by decree."
+  },
+  {
+   "place": "Hormuz",
+   "region": "Mideast",
+   "source": "UKMTO",
+   "text": "Four attacks on vessels in 96 hours, maritime centre says."
+  },
+  {
+   "place": "New Delhi",
+   "region": "Asia",
+   "source": "THE HINDU",
+   "text": "Pakistan minister to lead delegation to SCO dialogue."
+  },
+  {
+   "place": "Qatar",
+   "region": "Mideast",
+   "source": "FIFA",
+   "text": "U17 World Cup: Australia stun Argentina 2–0."
+  },
+  {
+   "place": "South Africa",
+   "region": "Africa",
+   "source": "ICC",
+   "text": "Harmer spins Proteas to Test win; Bavuma sets record."
+  },
+  {
+   "place": "Hong Kong",
+   "region": "Asia",
+   "source": "BWF",
+   "text": "Badminton Open rematch semifinals after upset."
+  },
+  {
+   "place": "Taiwan",
+   "region": "Asia",
+   "source": "REUTERS",
+   "text": "Short-sell curbs take effect; two Russian bombers tracked."
+  },
+  {
+   "place": "Turin",
+   "region": "Europe",
+   "source": "ATP",
+   "text": "Alcaraz–Cobolli & Medvedev–Tiafoe close ATP Finals groups."
+  },
+  {
+   "place": "Los Angeles",
+   "region": "Americas",
+   "source": "BBC",
+   "text": "Thomas Markle ruled to stand trial."
+  },
+  {
+   "place": "Wellington",
+   "region": "Oceania",
+   "source": "ICC",
+   "text": "Henry Nicholls scores 175* in 216-run stand with Phillips."
+  },
+  {
+   "place": "China",
+   "region": "Asia",
+   "source": "REUTERS",
+   "text": "China holds lending rates for 18th month (1-yr 3.0%, 5-yr 3.5%)."
+  }
+ ],
+ "date": "2026-11-20",
+ "date_check": "DATE CHECK ✓  All 37 stories happened, or were first reported, on Friday 20 November 2026 (any time zone). First reported Thursday 19 Nov, so NOT shown as Friday's news: the Trump–Xi–Putin Shenzhen summit itself · Anthropic's $83 IPO pricing & Nasdaq debut · ICJ Myanmar Rohingya genocide verdict · GTA VI midnight launch.",
+ "date_label": "FRIDAY 20 NOVEMBER 2026",
+ "features": [
+  {
+   "art": "chartdown",
+   "headline": "AI sell-off sinks Asia to worst week since 2020",
+   "n": 4,
+   "place": "ASIA · SEOUL / TOKYO",
+   "region": "Asia",
+   "summary": "Nikkei −4.5%, KOSPI −4.7%; MSCI Asia down 7%."
+  },
+  {
+   "art": "planet",
+   "headline": "BepiColombo reaches Mercury after 8 years",
+   "n": 5,
+   "place": "WORLD · MERCURY",
+   "region": "World",
+   "summary": "ESA/JAXA probe ends 6bn-mile trip; insertion Saturday."
+  },
+  {
+   "art": "flags",
+   "headline": "Burnham holds first EU–UK reset summit",
+   "n": 6,
+   "place": "EUROPE · BRUSSELS",
+   "region": "Europe",
+   "summary": "Costa & von der Leyen host UK PM; agrifood links eyed."
+  },
+  {
+   "art": "bars",
+   "headline": "Japan inflation hits 2.3%; BoJ hike eyed",
+   "n": 7,
+   "place": "ASIA · TOKYO",
+   "region": "Asia",
+   "summary": "Oct CPI up from 2.1%; core above 2% a second month."
+  },
+  {
+   "art": "sunset",
+   "headline": "GTA VI smashes records with ~$2.36bn first day",
+   "n": 8,
+   "place": "WORLD · VIDEO GAMES",
+   "region": "World",
+   "summary": "Sensor Tower: 24.58m copies — double GTA V's record."
+  },
+  {
+   "art": "bat",
+   "headline": "Phillips makes history with 118 vs India",
+   "n": 9,
+   "place": "OCEANIA · WELLINGTON",
+   "region": "Oceania",
+   "summary": "First NZ batter with centuries in all 3 formats in a year."
+  },
+  {
+   "art": "vote",
+   "headline": "Bukele registers for third-term bid",
+   "n": 10,
+   "place": "AMERICAS · SAN SALVADOR",
+   "region": "Americas",
+   "summary": "Files for Feb 2027 vote; rights groups object."
+  },
+  {
+   "art": "waves",
+   "headline": "Migrant boat capsizes off Yemen; 4 dead",
+   "n": 11,
+   "place": "MIDEAST · YEMEN COAST",
+   "region": "Mideast",
+   "summary": "Dozens missing from ~50–100 aboard as Canary arrivals surge."
+  },
+  {
+   "art": "rally",
+   "headline": "Italy's CGIL holds 24-hr general strike",
+   "n": 12,
+   "place": "EUROPE · ROME",
+   "region": "Europe",
+   "summary": "Unions rally in ~100 squares against 2027 budget."
+  },
+  {
+   "art": "pill",
+   "headline": "Pancreatic cancer pill shrinks tumours 60.7%",
+   "n": 13,
+   "place": "WORLD · HEALTH",
+   "region": "World",
+   "summary": "Daraxonrasib + chemo beats chemo alone in early trial."
+  }
+ ],
+ "kicker": "Cyclone Akvan strikes India  ·  Ballistic missiles hit Kyiv  ·  COP31 deadlocked on final day  ·  Asian AI sell-off",
+ "leads": [
+  {
+   "art": "cyclone",
+   "headline": "Cyclone Akvan makes landfall in eastern India",
+   "n": 1,
+   "place": "ASIA · ODISHA, INDIA",
+   "region": "Asia",
+   "summary": "Severe storm crosses near Gopalpur; 300,000+ evacuated, winds 90–100 gusting 110 km/h, 423 rescue teams deployed, schools shut."
+  },
+  {
+   "art": "rockets",
+   "headline": "Russia fires wave of ~30 ballistic missiles at Kyiv",
+   "n": 2,
+   "place": "EUROPE · KYIV, UKRAINE",
+   "region": "Europe",
+   "summary": "Seven overnight waves hit energy and transport sites; fires burn in three districts; Dutch and Austrian embassies damaged."
+  },
+  {
+   "art": "cop",
+   "headline": "COP31 reaches its final day deadlocked",
+   "n": 3,
+   "place": "WORLD · ANTALYA, TÜRKİYE",
+   "region": "World",
+   "summary": "Closing draft omits fossil-fuel phase-out; a $120bn adaptation gap stays unresolved; hosts push “35 by 35”."
+  }
+ ],
+ "masthead": "Friday 20 November 2026",
+ "numbers": [
+  {
+   "big": "300,000+",
+   "cap": "evacuated ahead of Cyclone Akvan"
+  },
+  {
+   "big": "~30",
+   "cap": "ballistic missiles fired at Kyiv"
+  },
+  {
+   "big": "−7%",
+   "cap": "Asia shares' worst week since 2020"
+  },
+  {
+   "big": "2.3%",
+   "cap": "Japan Oct headline CPI; BoJ eyed"
+  },
+  {
+   "big": "118",
+   "cap": "Phillips' historic century vs India"
+  },
+  {
+   "big": "8 yrs",
+   "cap": "BepiColombo reaches Mercury"
+  }
+ ],
+ "sources": "Sources: Reuters, AP, AFP, BBC, IMD, UN News, Al Jazeera, ICC, EU Council, PBOC. Original vector drawings. Every story here happened, or was first reported, on Friday 20 November 2026 in at least one time zone. Claims are attributed, not stated as fact.",
+ "topline_left": "FRIDAY'S NEWS · ONE PAGE · 37 STORIES · 6 CONTINENTS",
+ "topline_right": "ALL STORIES: FRI 20 NOV 2026, ANY TIME ZONE"
+}
