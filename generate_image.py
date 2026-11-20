@@ -1,239 +1,197 @@
 #!/usr/bin/env python3
-"""Draw entry.png (1024x1024) for make.fun news-image-20261120.
+"""Render the one-page newspaper front page for 20 November 2026.
 
-Reads stories.json beside this script and lays out a one-page newspaper
-front page: serif masthead, subtitle, a large red date line, then seven
-stories, each with a dark tag chip, a bold one-line headline and a
-two-line summary. Before drawing anything, every story is measured with
-the real fonts and the headline/summary sizes are stepped down until
-the whole block fits between the date rule and the footer, so no two
-text lines can ever overlap. If hero.png sits beside this script, a
-cropped band of it is placed as a strip under the date rule, but only
-when the stories still fit at the minimum font sizes; otherwise the
-strip is dropped and the pure text layout is used. Headlines are never
-cut with an ellipsis. Pillow + stdlib only; no network, no randomness,
-so repeated runs are byte-identical.
+Reads ``stories.json`` next to this script (seven world-news stories,
+each with a headline and a short summary) and draws a 1024x1024
+newspaper page with Pillow: a white paper background, the date set
+large in red, one block per story with a thin rule between stories,
+and a small footer.
+
+Usage:
+
+    python3 generate_image.py --out /tmp/preview.png
+
+The default output is ``entry.png`` next to this script; pass
+``--out`` whenever you only want a test render.
 """
+
+import argparse
 import json
 import os
-import sys
 
 from PIL import Image, ImageDraw, ImageFont
 
-BASE = os.path.dirname(os.path.abspath(__file__))
-CANVAS = (1024, 1024)
+PAGE = 1024
+MARGIN = 48
+GUTTER = 28
 
-PAPER = (250, 247, 238)
 INK = (18, 18, 18)
-BODY = (52, 50, 46)
-RED = (168, 32, 26)
-GREY = (90, 86, 78)
-RULE = (150, 145, 132)
-CHIP = (18, 18, 18)
-CHIP_TEXT = (250, 247, 238)
-NUMERAL = (36, 68, 120)
+RED = (178, 34, 34)
+GREY = (110, 110, 110)
+RULE = (190, 190, 190)
+PAPER = (255, 255, 255)
 
-FONTS = "/usr/share/fonts/truetype/dejavu"
-SERIF_BOLD = "DejaVuSerif-Bold.ttf"
-SANS = "DejaVuSans.ttf"
-SANS_BOLD = "DejaVuSans-Bold.ttf"
-
-MARGIN = 46
-SOURCES_LINE = ("Sources: BBC  ·  Reuters  ·  CNBC  ·  IMD  ·  Sensor Tower  ·  "
-                "The Times")
-
-HERO_PATH = os.path.join(BASE, "hero.png")
-HERO_CROP = (0, 380, 2560, 620)   # middle band of the 2560x960 hero
-STRIP_GAP = 8
-
-MIN_HEAD, MIN_SUM = 19, 14
+SERIF_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf"
+SERIF = "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf"
+SANS = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+SANS_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 
 
-def load(name, size):
-    return ImageFont.truetype(os.path.join(FONTS, name), size)
+def font(path, size):
+    """Load a TrueType font, falling back to Pillow's built-in font."""
+    try:
+        return ImageFont.truetype(path, size)
+    except OSError:
+        return ImageFont.load_default()
 
 
-def flow_text(draw, text, font, width, limit):
-    """Greedy word wrap, capped at `limit` lines with an ellipsis tail."""
-    rows = []
-    current = ""
-    for word in text.split():
-        trial = (current + " " + word).strip()
-        if draw.textlength(trial, font=font) <= width:
-            current = trial
-        else:
-            rows.append(current)
-            current = word
-    if current:
-        rows.append(current)
-    if len(rows) > limit:
-        rows = rows[:limit]
-        while rows and draw.textlength(rows[-1] + " ...", font=font) > width:
-            rows[-1] = rows[-1].rsplit(" ", 1)[0]
-        rows[-1] = rows[-1] + " ..."
-    return rows
+def wrap(draw, text, face, max_width):
+    """Split text into lines that fit max_width, word by word."""
+    lines = []
+    for paragraph in text.split("\n"):
+        words = paragraph.split()
+        if not words:
+            lines.append("")
+            continue
+        current = words[0]
+        for word in words[1:]:
+            trial = current + " " + word
+            if draw.textlength(trial, font=face) <= max_width:
+                current = trial
+            else:
+                lines.append(current)
+                current = word
+        lines.append(current)
+    return lines
 
 
-def lay_out(draw, stories, head_font, sum_font, width):
-    """Measure every story; return (per-story rows, total height)."""
-    total = 0
-    laid = []
-    for story in stories:
-        head_rows = flow_text(draw, story["headline"], head_font, width, 1)
-        sum_rows = flow_text(draw, story["summary"], sum_font, width, 2)
-        laid.append((head_rows, sum_rows))
-        block = (24 + 4                       # tag chip + gap
-                 + len(head_rows) * (head_font.size + 4)
-                 + len(sum_rows) * (sum_font.size + 5)
-                 + 6)                         # breathing room + divider
-        total += block
-    return laid, total
+def fit_lines(draw, text, face, max_width, max_lines):
+    """Wrap text and clip it to max_lines, adding an ellipsis if cut."""
+    lines = wrap(draw, text, face, max_width)
+    if len(lines) <= max_lines:
+        return lines
+    clipped = lines[:max_lines]
+    while clipped and draw.textlength(clipped[-1] + " …", font=face) > max_width:
+        clipped[-1] = clipped[-1].rsplit(" ", 1)[0]
+    clipped[-1] = clipped[-1] + " …"
+    return clipped
 
 
-def head_truncated(laid):
-    """True if any headline row was cut with an ellipsis."""
-    return any(row.endswith(" ...")
-               for head_rows, _ in laid for row in head_rows)
+def draw_lines(draw, lines, face, x, y, fill, spacing):
+    """Draw lines top to bottom, returning the y below the last line."""
+    for line in lines:
+        draw.text((x, y), line, font=face, fill=fill)
+        y += face.size + spacing
+    return y
 
 
-def fit(draw, stories, width, room):
-    """Largest headline/summary sizes that fit `room` with no headline cut.
+def story_block(draw, story, x, y, width):
+    """Draw one story (tag, headline, summary) and return the next y."""
+    tag_face = font(SANS_BOLD, 13)
+    head_face = font(SERIF_BOLD, 20)
+    body_face = font(SANS, 14)
 
-    Returns (head_size, sum_size, laid, needed, fits).
-    """
-    head_size, sum_size = 24, 17
-    while True:
-        head_font = load(SANS_BOLD, head_size)
-        sum_font = load(SANS, sum_size)
-        laid, needed = lay_out(draw, stories, head_font, sum_font, width)
-        fits = needed <= room and not head_truncated(laid)
-        if fits:
-            return head_size, sum_size, laid, needed, True
-        if head_size <= MIN_HEAD and sum_size <= MIN_SUM:
-            return head_size, sum_size, laid, needed, False
-        # Step down independently so neither size goes below its minimum.
-        if head_size > MIN_HEAD:
-            head_size -= 1
-        if sum_size > MIN_SUM:
-            sum_size -= 1
+    tag = story.get("tag", "").upper()
+    if tag:
+        y = draw_lines(draw, [tag], tag_face, x, y, RED, 2)
+        y += 2
+
+    headline = fit_lines(draw, story["headline"], head_face, width, 3)
+    y = draw_lines(draw, headline, head_face, x, y, INK, 2)
+    y += 2
+
+    summary = fit_lines(draw, story["summary"], body_face, width, 4)
+    y = draw_lines(draw, summary, body_face, x, y, (60, 60, 60), 2)
+    return y
+
+
+def render(data):
+    """Build the 1024x1024 front page and return the Pillow image."""
+    image = Image.new("RGB", (PAGE, PAGE), PAPER)
+    draw = ImageDraw.Draw(image)
+
+    title = data.get("title", "THE WORLD TODAY")
+    subtitle = data.get("subtitle", "")
+    date_label = data.get("date_label", "FRIDAY 20 NOVEMBER 2026")
+    footer = data.get("footer", "")
+    stories = data["stories"]
+
+    # --- Masthead -----------------------------------------------------
+    y = 36
+    title_face = font(SERIF_BOLD, 64)
+    title_w = draw.textlength(title, font=title_face)
+    draw.text(((PAGE - title_w) / 2, y), title, font=title_face, fill=INK)
+    y += 64 + 10
+
+    date_face = font(SERIF_BOLD, 40)
+    date_text = "20 November 2026"
+    date_w = draw.textlength(date_text, font=date_face)
+    draw.text(((PAGE - date_w) / 2, y), date_text, font=date_face, fill=RED)
+    y += 40 + 8
+
+    label_face = font(SANS_BOLD, 15)
+    label_w = draw.textlength(date_label, font=label_face)
+    draw.text(((PAGE - label_w) / 2, y), date_label, font=label_face, fill=GREY)
+    y += 15 + 6
+
+    if subtitle:
+        sub_face = font(SERIF, 17)
+        sub_w = draw.textlength(subtitle, font=sub_face)
+        draw.text(((PAGE - sub_w) / 2, y), subtitle, font=sub_face, fill=(70, 70, 70))
+        y += 17 + 12
+
+    draw.line([(MARGIN, y), (PAGE - MARGIN, y)], fill=INK, width=3)
+    y += 6
+    draw.line([(MARGIN, y), (PAGE - MARGIN, y)], fill=INK, width=1)
+    y += 18
+
+    # --- Stories in two columns ---------------------------------------
+    column_w = (PAGE - 2 * MARGIN - GUTTER) // 2
+    left_x = MARGIN
+    right_x = MARGIN + column_w + GUTTER
+    top = y
+
+    split = (len(stories) + 1) // 2  # 4 on the left, 3 on the right
+    for column, group in enumerate((stories[:split], stories[split:])):
+        x = left_x if column == 0 else right_x
+        cy = top
+        for index, story in enumerate(group):
+            cy = story_block(draw, story, x, cy, column_w)
+            if index < len(group) - 1:
+                cy += 8
+                draw.line([(x, cy), (x + column_w, cy)], fill=RULE, width=1)
+                cy += 12
+        if column == 0:
+            left_bottom = cy
+
+    y = max(left_bottom, cy) + 10
+
+    # --- Footer -------------------------------------------------------
+    draw.line([(MARGIN, y), (PAGE - MARGIN, y)], fill=RULE, width=1)
+    y += 10
+    foot_face = font(SANS, 12)
+    foot_lines = fit_lines(draw, footer, foot_face, PAGE - 2 * MARGIN, 2)
+    draw_lines(draw, foot_lines, foot_face, MARGIN, y, GREY, 2)
+
+    return image
 
 
 def main():
-    with open(os.path.join(BASE, "stories.json"), encoding="utf-8") as fh:
-        data = json.load(fh)
+    here = os.path.dirname(os.path.abspath(__file__))
+    parser = argparse.ArgumentParser(description="Render the front page.")
+    parser.add_argument(
+        "--out",
+        default=os.path.join(here, "entry.png"),
+        help="output PNG path (default: entry.png next to this script)",
+    )
+    args = parser.parse_args()
 
-    page = Image.new("RGB", CANVAS, PAPER)
-    draw = ImageDraw.Draw(page)
+    with open(os.path.join(here, "stories.json"), encoding="utf-8") as handle:
+        data = json.load(handle)
 
-    masthead_font = load(SERIF_BOLD, 56)
-    subtitle_font = load(SANS, 22)
-    date_font = load(SANS_BOLD, 40)
-    chip_font = load(SANS_BOLD, 16)
-    numeral_font = load(SANS_BOLD, 22)
-    footer_font = load(SANS, 15)
-
-    left = MARGIN
-    right = CANVAS[0] - MARGIN
-    text_w = right - left
-
-    # --- Masthead + date -------------------------------------------------
-    y = 22
-    draw.text((CANVAS[0] // 2, y), data["title"], font=masthead_font,
-              fill=INK, anchor="ma")
-    y += 68
-    draw.text((CANVAS[0] // 2, y), data["subtitle"], font=subtitle_font,
-              fill=GREY, anchor="ma")
-    y += 36
-    draw.line([(left, y), (right, y)], fill=INK, width=3)
-    y += 10
-    draw.text((CANVAS[0] // 2, y), data["date_label"], font=date_font,
-              fill=RED, anchor="ma")
-    y += 54
-    draw.line([(left, y), (right, y)], fill=INK, width=3)
-    y += 16
-
-    plain_top = y
-    footer_rule_y = CANVAS[1] - 70
-
-    # --- Hero strip? Only if the stories still fit with it in place. ----
-    strip = None
-    strip_top = None
-    if os.path.exists(HERO_PATH):
-        hero = Image.open(HERO_PATH).convert("RGB")
-        band = hero.crop(HERO_CROP)
-        strip_w = text_w
-        strip_h = round((HERO_CROP[3] - HERO_CROP[1]) * strip_w
-                        / (HERO_CROP[2] - HERO_CROP[0]))
-        strip = band.resize((strip_w, strip_h), Image.LANCZOS)
-        strip_top = plain_top + STRIP_GAP
-        stories_top = strip_top + strip_h + STRIP_GAP
-        room = footer_rule_y - stories_top
-        head_size, sum_size, laid, needed, fits = fit(
-            draw, data["stories"], text_w, room)
-        print("fit with hero strip: headline=%d summary=%d needed=%d "
-              "room=%d fits=%s" % (head_size, sum_size, needed, room, fits),
-              file=sys.stderr)
-        if not fits:
-            print("hero strip dropped: stories do not fit even at minimum "
-                  "font sizes", file=sys.stderr)
-            strip = None
-    if strip is None:
-        stories_top = plain_top
-        room = footer_rule_y - stories_top
-        head_size, sum_size, laid, needed, fits = fit(
-            draw, data["stories"], text_w, room)
-        print("fit: headline=%d summary=%d needed=%d room=%d"
-              % (head_size, sum_size, needed, room), file=sys.stderr)
-        if not fits:
-            sys.exit("stories do not fit even at minimum font sizes")
-
-    head_font = load(SANS_BOLD, head_size)
-    sum_font = load(SANS, sum_size)
-
-    if strip is not None:
-        page.paste(strip, (left, strip_top))
-
-    # --- Stories ----------------------------------------------------------
-    y = stories_top
-    for idx, story in enumerate(data["stories"]):
-        head_rows, sum_rows = laid[idx]
-        top = y
-
-        chip_w = draw.textlength(story["tag"], font=chip_font) + 18
-        draw.rounded_rectangle([left, top, left + chip_w, top + 24],
-                               radius=4, fill=CHIP)
-        draw.text((left + 9, top + 2), story["tag"], font=chip_font,
-                  fill=CHIP_TEXT)
-        draw.text((right, top + 1), str(story["n"]), font=numeral_font,
-                  fill=NUMERAL, anchor="ra")
-
-        cursor = top + 24 + 4
-        for row in head_rows:
-            draw.text((left, cursor), row, font=head_font, fill=INK)
-            cursor += head_size + 4
-        for row in sum_rows:
-            draw.text((left, cursor), row, font=sum_font, fill=BODY)
-            cursor += sum_size + 5
-
-        y = cursor + 6
-        if idx < len(data["stories"]) - 1:
-            draw.line([(left, y - 3), (right, y - 3)], fill=RULE, width=1)
-
-    # --- Footer -----------------------------------------------------------
-    draw.line([(left, footer_rule_y), (right, footer_rule_y)],
-              fill=INK, width=2)
-    foot_rows = flow_text(draw, data["footer"], footer_font, text_w, 2)
-    fy = footer_rule_y + 8
-    for row in foot_rows:
-        draw.text((CANVAS[0] // 2, fy), row, font=footer_font, fill=GREY,
-                  anchor="ma")
-        fy += 19
-    draw.text((CANVAS[0] // 2, fy + 2), SOURCES_LINE, font=footer_font,
-              fill=GREY, anchor="ma")
-
-    out_path = os.path.join(BASE, "entry.png")
-    page.save(out_path, "PNG", optimize=True)
-    print("wrote %s (%d bytes)" % (out_path, os.path.getsize(out_path)))
+    image = render(data)
+    image.save(args.out, format="PNG")
+    print("wrote %s (%dx%d)" % (args.out, image.width, image.height))
 
 
 if __name__ == "__main__":
